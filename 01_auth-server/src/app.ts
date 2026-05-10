@@ -1,0 +1,18 @@
+import { PORT } from '#config';
+import '#db';
+import express from 'express';
+import { errorHandler, notFoundHandler } from '#middleware';
+import { bookRoutes } from '#routes';
+
+const app = express();
+
+app.use(express.json());
+
+app.use('/books', bookRoutes);
+
+app.use('*splat', notFoundHandler);
+app.use(errorHandler);
+
+app.listen(PORT, () => {
+  console.log(`Auth Server listening on http://localhost:${PORT}`);
+});
