@@ -9,7 +9,10 @@ type BookQuery = { page?: string; limit?: string };
 type BookResBody = { data: unknown };
 type BookBody = z.infer<typeof bookSchema>;
 
-export const createBook: RequestHandler<NoRouterParams, BookResBody, BookBody> = async (req, res) => {
+export const createBook: RequestHandler<NoRouterParams, BookResBody, BookBody> = async (
+  req,
+  res
+) => {
   const book = await Book.create(req.body);
   res.status(201).json({ data: book });
 };
@@ -34,7 +37,10 @@ export const getOneBook: RequestHandler<BookParams, BookResBody> = async (req, r
   res.json({ data: book });
 };
 
-export const updateOneBook: RequestHandler<BookParams, BookResBody, BookBody> = async (req, res) => {
+export const updateOneBook: RequestHandler<BookParams, BookResBody, BookBody> = async (
+  req,
+  res
+) => {
   const { id } = req.params;
   const book = await Book.findByIdAndUpdate(id, req.body, { new: true, runValidators: true });
   if (!book) throw new Error('Book not found', { cause: { status: 404 } });

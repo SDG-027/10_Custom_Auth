@@ -2,12 +2,13 @@ import { PORT } from '#config';
 import '#db';
 import express from 'express';
 import { errorHandler, notFoundHandler } from '#middleware';
-import { bookRoutes } from '#routes';
+import { authRoutes, bookRoutes } from '#routes';
 
 const app = express();
 
 app.use(express.json());
 
+app.use('/auth', authRoutes);
 app.use('/books', bookRoutes);
 
 app.use('*splat', notFoundHandler);
