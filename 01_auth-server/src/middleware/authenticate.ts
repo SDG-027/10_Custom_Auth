@@ -2,19 +2,29 @@ import jwt from 'jsonwebtoken';
 import type { RequestHandler } from 'express';
 
 const authenticate: RequestHandler = (req, res, next) => {
+  // Cookie-Header manuell parsen — fragil, funktioniert nur wenn genau ein Cookie gesetzt ist.
+  // Werden wir später ersetzen
   const token = req.header('cookie').split('=')[1];
+
+  // frühere Iteration mit hartkodiertem Secret-Vergleich —
+  // if ('token=super-secure-secret' !== cookie) { ... }
+
+  // Fehlt der Token, ist der User nicht eingeloggt → 401 Unauthorized
   if (!token) {
-    throw new Error('thou shall not pass', { cause: { status: 401 } }); // wir kennen dich nicht
+    throw new Error('thou shall not pass', { cause: { status: 401 } });
   }
-  // if ('token=super-secure-secret' !== cookie) {
-  //   throw new Error('thou shall not pass', { cause: { status: 401 } }); // wir kennen dich nicht
-  // }
 
   try {
+    // jwt.verify() prüft zwei Dinge gleichzeitig:
+    // 1. Wurde der Token mit unserem SECRET signiert? (Integrität)
+    // 2. Ist er noch nicht abgelaufen? (falls ein expiresIn gesetzt wurde)
+    // Schlägt einer der Checks fehl, wirft verify() einen Fehler.
     jwt.verify(token, process.env.ACCESS_JWT_SECRET!);
+
+    // Token ist gültig → Request darf weiterlaufen
     next();
   } catch (error) {
-    console.log(error);
+    // Ungültiger oder manipulierter Token → ebenfalls 401
     throw new Error('thou shall not pass', { cause: { status: 401 } });
   }
 };
