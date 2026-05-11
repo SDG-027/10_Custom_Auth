@@ -5,13 +5,13 @@ import { bookSchema } from '#schemas';
 
 const bookRoutes = Router();
 
-bookRoutes.post('/', validateBody(bookSchema), createBook);
+bookRoutes.post('/', authenticate, validateBody(bookSchema), createBook);
 
-bookRoutes.get('/', authenticate, getAllBooks);
+bookRoutes.get('/', getAllBooks);
 
 bookRoutes.get('/:id', getOneBook);
-bookRoutes.put('/:id', validateBody(bookSchema), updateOneBook);
+bookRoutes.put('/:id', authenticate, validateBody(bookSchema), updateOneBook);
 
-bookRoutes.delete('/:id', deleteBook);
+bookRoutes.delete('/:id', authenticate, deleteBook);
 
 export default bookRoutes;

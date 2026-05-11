@@ -2,6 +2,9 @@ import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import { User } from '#models';
 import type { RequestHandler } from 'express';
+import { createToken, getCookieOpts } from '#utils';
+
+import { ACCESS_TOKEN_TTL, REFRESH_TOKEN_TTL } from '#config';
 
 export const register: RequestHandler = async (req, res) => {
   // Eingabedaten aus dem Request-Body extrahieren
@@ -33,21 +36,49 @@ export const register: RequestHandler = async (req, res) => {
 
   // JWT erstellen — enthält die User-ID als Payload und wird mit dem Secret signiert.
   // Dieser Token beweist dem Server bei späteren Requests, wer der User ist.
-  const token = jwt.sign({ _id: user._id }, process.env.ACCESS_JWT_SECRET!);
+  // const token = jwt.sign({ _id: user._id }, process.env.ACCESS_JWT_SECRET!);
+  //
+  const token = createToken(data);
 
   // Token als HttpOnly-Cookie setzen — der Browser sendet ihn automatisch mit,
   // aber JavaScript im Browser kann ihn nicht auslesen (XSS-Schutz).
   // secure: true → nur über HTTPS; sameSite: 'none' → nötig für Cross-Origin-Requests
-  res.cookie('token', token, {
-    httpOnly: true,
-    secure: true,
-    sameSite: 'none'
-  });
+  //
+  const cookieOpts = getCookieOpts();
+  res.cookie('token', token, cookieOpts);
 
   // Antwort an den Client: Erfolgsmeldung + User-Daten (ohne PW) + Token im Body.
   // Der Token im Body ist optional — oft reicht der Cookie allein.
   res.json({ msg: 'Success', user: data, token });
 };
 
-export const login: RequestHandler = async (req, res) => {};
-export const logout: RequestHandler = async (req, res) => {};
+export const login: RequestHandler = async (req, res) => {
+  const { password, email } = req.body;
+
+  const user = await User.findOne({ email }).select('+password').lean();
+
+  if (!user) {
+    throw new Error('Invalid credentials', { cause: { status: 401 } });
+  }
+
+  const match = await bcrypt.compare(password, user.password);
+
+  if (!match) {
+    throw new Error('Invalid credentials', { cause: { status: 401 } });
+  }
+
+  const { password: _, ...data } = user;
+
+  const token = createToken(data);
+
+  const cookieOpts = getCookieOpts();
+
+  res.cookie('token', token, cookieOpts);
+
+  res.json({ msg: 'Success', user: data, token });
+};
+
+export const logout: RequestHandler = async (req, res) => {
+  res.clearCookie('token');
+  res.json({ message: 'Logged out' });
+};

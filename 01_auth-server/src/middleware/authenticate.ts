@@ -2,9 +2,7 @@ import jwt from 'jsonwebtoken';
 import type { RequestHandler } from 'express';
 
 const authenticate: RequestHandler = (req, res, next) => {
-  // Cookie-Header manuell parsen — fragil, funktioniert nur wenn genau ein Cookie gesetzt ist.
-  // Werden wir später ersetzen
-  const token = req.header('cookie').split('=')[1];
+  const { token } = req.cookies;
 
   // frühere Iteration mit hartkodiertem Secret-Vergleich —
   // if ('token=super-secure-secret' !== cookie) { ... }
