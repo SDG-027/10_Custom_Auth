@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 const envSchema = z.object({
-  MONGO_URI: z.url({ protocol: /mongodb/ }),
+  MONGO_URI: z.string(),
   DB_NAME: z.string().default('auth-server'),
   REFRESH_TOKEN_TTL: z.coerce.number().default(30 * 24 * 60 * 60), // 30 days in seconds
   ACCESS_TOKEN_TTL: z.coerce.number().default(15 * 60), // 15 minutes in seconds
