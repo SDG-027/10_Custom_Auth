@@ -1,5 +1,5 @@
-import { login, logout, register } from '#controllers';
-import { validateBody } from '#middleware';
+import { login, logout, refresh, register } from '#controllers';
+import { authenticate, validateBody } from '#middleware';
 import { registerSchema } from '#schemas';
 import { Router } from 'express';
 
@@ -10,5 +10,7 @@ authRoutes.post('/register', validateBody(registerSchema), register); // erstell
 authRoutes.post('/login', login); // habe ich einen eintrag in der DB? -> Token
 
 authRoutes.delete('/logout', logout); // löscht  Bearer Token
+
+authRoutes.get('/refresh', authenticate, refresh);
 
 export default authRoutes;

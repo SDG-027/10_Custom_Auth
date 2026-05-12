@@ -17,7 +17,14 @@ const authenticate: RequestHandler = (req, res, next) => {
     // 1. Wurde der Token mit unserem SECRET signiert? (Integrität)
     // 2. Ist er noch nicht abgelaufen? (falls ein expiresIn gesetzt wurde)
     // Schlägt einer der Checks fehl, wirft verify() einen Fehler.
-    jwt.verify(token, process.env.ACCESS_JWT_SECRET!);
+    const decoded = jwt.verify(token, process.env.ACCESS_JWT_SECRET!);
+
+    // Alle Infos, die wir in den Token vorher eingebacken haben, können wir hier nun herausholen.
+    // Prakischerweise lässt es sich an das Request-Objekt anhängen (achtet auf die TS Deklaration in src/types/index.ts)
+    req.user = {
+      _id: decoded.sub!.toString(),
+      roles: []
+    };
 
     // Token ist gültig → Request darf weiterlaufen
     next();

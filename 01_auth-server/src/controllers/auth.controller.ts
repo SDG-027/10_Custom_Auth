@@ -82,3 +82,10 @@ export const logout: RequestHandler = async (req, res) => {
   res.clearCookie('token');
   res.json({ message: 'Logged out' });
 };
+
+// Mithilfe der user _id aus dem token können wir den State im Frontend refreshen.
+// TODO: mache den controller sicherer. Was ist z.B., wenn der Nutzer nicht mehr in der DB existiert?
+export const refresh: RequestHandler = async (req, res) => {
+  const user = await User.findById(req.user?._id);
+  res.json({ user });
+};

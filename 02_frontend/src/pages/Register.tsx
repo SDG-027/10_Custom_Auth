@@ -19,7 +19,7 @@ const RegisterForm = () => {
   const handleSubmit = (e: SubmitEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (formState.confirmPassword !== formState.password) return;
-    // register(formState);
+    register(formState);
   };
 
   return (

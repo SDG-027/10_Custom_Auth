@@ -37,6 +37,22 @@ const AuthContextProvider = ({ children }: Props) => {
 
   const register = async (formState: RegisterForm) => {
     try {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/auth/register`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formState),
+        credentials: 'include',
+      });
+
+      if (!res.ok) throw new Error('Error registering');
+      const data = await res.json();
+
+      console.log(data);
+      setUser(data.user);
+
+      toaster?.success(`Welcome on board, ${data.user.firstName}`);
       navigate('/books');
     } catch (error) {
       if (error instanceof Error) {
@@ -47,6 +63,23 @@ const AuthContextProvider = ({ children }: Props) => {
 
   const login = async (formState: LoginForm) => {
     try {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/auth/login`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formState),
+        credentials: 'include',
+      });
+
+      if (!res.ok) throw new Error('Error logging in');
+      const data = await res.json();
+
+      console.log(data);
+      setUser(data.user);
+
+      toaster?.success(`Welcome back, ${data.user.firstName}`);
+
       navigate('/books');
     } catch (error) {
       if (error instanceof Error) {
@@ -57,6 +90,14 @@ const AuthContextProvider = ({ children }: Props) => {
 
   const logout = async () => {
     try {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/auth/logout`, {
+        method: 'DELETE',
+        credentials: 'include',
+      });
+      if (!res.ok) throw new Error('Error logging out');
+
+      setUser(null);
+
       navigate('/');
 
       toaster?.success(`Bye`);
@@ -68,9 +109,21 @@ const AuthContextProvider = ({ children }: Props) => {
   useEffect(() => {
     const refresh = async () => {
       try {
-        setIsRefreshing(false);
+        const res = await fetch(
+          `${import.meta.env.VITE_API_URL}/auth/refresh`,
+          {
+            method: 'GET',
+            credentials: 'include',
+          }
+        );
+
+        const data = await res.json();
+
+        setUser(data.user);
       } catch {
         navigate('/');
+      } finally {
+        setIsRefreshing(false);
       }
     };
     if (isRefreshing) refresh();
