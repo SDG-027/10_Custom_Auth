@@ -4,6 +4,7 @@ import type { Types } from 'mongoose';
 
 type UserData = {
   _id: Types.ObjectId;
+  roles: string[];
 };
 
 const createToken = (userData: UserData) => {
@@ -11,7 +12,7 @@ const createToken = (userData: UserData) => {
     expiresIn: ACCESS_TOKEN_TTL,
     subject: userData._id.toString()
   };
-  const token = jwt.sign({}, ACCESS_JWT_SECRET, options);
+  const token = jwt.sign({ roles: userData.roles }, ACCESS_JWT_SECRET, options);
 
   return token;
 };

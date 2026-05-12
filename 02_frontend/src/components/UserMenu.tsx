@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { AuthContext } from '../contexts/AuthContext.tsx';
 
 const UserMenu = () => {
-  const { logout } = useContext(AuthContext)!;
+  const { logout, user } = useContext(AuthContext)!;
 
   return (
     <>
@@ -37,9 +37,11 @@ const UserMenu = () => {
                 Books
               </Link>
             </li>
-            <li>
-              <Link to={'/reading-list'}>Reading List</Link>
-            </li>
+            {user && user.roles.includes('books.edit') && (
+              <li>
+                <Link to={'/reading-list'}>Reading List</Link>
+              </li>
+            )}
             <li>
               <button onClick={logout}>Logout</button>
             </li>

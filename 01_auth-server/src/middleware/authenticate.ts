@@ -1,4 +1,4 @@
-import jwt from 'jsonwebtoken';
+import jwt, { type JwtPayload } from 'jsonwebtoken';
 import type { RequestHandler } from 'express';
 
 const authenticate: RequestHandler = (req, res, next) => {
@@ -17,13 +17,13 @@ const authenticate: RequestHandler = (req, res, next) => {
     // 1. Wurde der Token mit unserem SECRET signiert? (Integrität)
     // 2. Ist er noch nicht abgelaufen? (falls ein expiresIn gesetzt wurde)
     // Schlägt einer der Checks fehl, wirft verify() einen Fehler.
-    const decoded = jwt.verify(token, process.env.ACCESS_JWT_SECRET!);
+    const decoded = jwt.verify(token, process.env.ACCESS_JWT_SECRET!) as JwtPayload;
 
     // Alle Infos, die wir in den Token vorher eingebacken haben, können wir hier nun herausholen.
     // Prakischerweise lässt es sich an das Request-Objekt anhängen (achtet auf die TS Deklaration in src/types/index.ts)
     req.user = {
       _id: decoded.sub!.toString(),
-      roles: []
+      roles: decoded.roles as string[]
     };
 
     // Token ist gültig → Request darf weiterlaufen

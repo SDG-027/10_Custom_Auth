@@ -20,15 +20,25 @@ const userSchema = new Schema({
     type: String,
     unique: true
   },
-  // username: {
-  //   type: String,
-  //   unique: true
-  // },
   password: {
     type: String,
     select: false
   },
-  readingList: [readingListSchema]
+  readingList: [readingListSchema],
+  roles: {
+    type: [String],
+    enum: [
+      'admin',
+      'reader',
+      'editor',
+      'librarian',
+      'books.read',
+      'books.write',
+      'books.edit',
+      'books.delete'
+    ],
+    default: ['reader']
+  }
 });
 
 const User = model('User', userSchema);
