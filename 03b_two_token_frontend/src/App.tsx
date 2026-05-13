@@ -5,6 +5,7 @@ import RegisterForm from './pages/Register';
 import Books from './pages/Books';
 import ReadingList from './pages/ReadingList';
 import ProtectedLayout from './layouts/ProtectedLayout';
+import './utils/index';
 
 function App() {
   return (

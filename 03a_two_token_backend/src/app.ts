@@ -16,7 +16,8 @@ app.use(
   cors({
     // origin: 'http://localhost:5173'
     origin: CLIENT_BASE_URL, // aus der env
-    credentials: true // für secure cookies
+    credentials: true, // für secure cookies
+    exposedHeaders: ['WWW-Authenticate'] // für den Refresh-Token-Cycle
   })
 );
 

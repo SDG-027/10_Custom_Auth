@@ -1,55 +1,42 @@
 import bcrypt from 'bcrypt';
-import jwt from 'jsonwebtoken';
-import { User } from '#models';
+import { RefreshToken, User } from '#models';
 import type { RequestHandler } from 'express';
 import { createToken, getCookieOpts } from '#utils';
-
-import { ACCESS_TOKEN_TTL, REFRESH_TOKEN_TTL } from '#config';
+import { REFRESH_TOKEN_TTL } from '#config';
 
 export const register: RequestHandler = async (req, res) => {
-  // Eingabedaten aus dem Request-Body extrahieren
   const { email, password } = req.body;
 
-  // Prüfen, ob ein User mit dieser E-Mail bereits existiert
-  // User.exists() gibt null oder ein Objekt mit _id zurück — reicht für eine truthy-Prüfung
   const userExists = await User.exists({ email });
 
-  // Doppelte Registrierung verhindern — HTTP 409 = Konflikt (Ressource existiert bereits)
   if (userExists) throw new Error('User already exists', { cause: { status: 409 } });
 
-  // Passwort niemals im Klartext speichern!
-  // genSalt erzeugt einen zufälligen "Salt" — der Kostenfaktor (13) bestimmt,
-  // wie rechenintensiv das Hashing ist. Höher = sicherer, aber langsamer.
   const salt = await bcrypt.genSalt(13);
-
-  // Das Passwort wird mit dem Salt gehasht. bcrypt speichert den Salt im Hash-String,
-  // sodass beim späteren Vergleich (bcrypt.compare) kein separater Salt nötig ist.
   const hashedPW = await bcrypt.hash(password, salt);
 
-  // User in der DB anlegen — gehashtes PW überschreibt das Klartext-PW aus req.body
-  // .toObject() wandelt das Mongoose-Dokument in ein plain JS-Objekt um
   const user = (await User.create({ ...req.body, password: hashedPW })).toObject();
 
-  // Passwort aus dem Objekt entfernen, bevor es an den Client gesendet wird.
-  // Destructuring mit Rest: `_` nimmt das PW heraus, `data` enthält den Rest.
+  // Passwort-Feld aus dem User-Objekt entfernen, bevor wir es weiterverwenden.
+  // Der Unterstrich (_) ist eine Konvention für "diese Variable ignorieren wir bewusst".
   const { password: _, ...data } = user;
 
-  // JWT erstellen — enthält die User-ID als Payload und wird mit dem Secret signiert.
-  // Dieser Token beweist dem Server bei späteren Requests, wer der User ist.
-  // const token = jwt.sign({ _id: user._id }, process.env.ACCESS_JWT_SECRET!);
-  //
-  const token = createToken(data);
+  // Beide Token auf einmal erstellen – createToken kümmert sich um JWT (access)
+  // und speichert den Refresh Token in MongoDB.
+  const { accessToken, refreshToken } = await createToken(data);
 
-  // Token als HttpOnly-Cookie setzen — der Browser sendet ihn automatisch mit,
-  // aber JavaScript im Browser kann ihn nicht auslesen (XSS-Schutz).
-  // secure: true → nur über HTTPS; sameSite: 'none' → nötig für Cross-Origin-Requests
-  //
   const cookieOpts = getCookieOpts();
-  res.cookie('token', token, cookieOpts);
 
-  // Antwort an den Client: Erfolgsmeldung + User-Daten (ohne PW) + Token im Body.
-  // Der Token im Body ist optional — oft reicht der Cookie allein.
-  res.json({ msg: 'Success', user: data, token });
+  // Access Token: kurzlebig, läuft nach wenigen Minuten ab (Ablauf steckt im JWT selbst).
+  res.cookie('accessToken', accessToken, cookieOpts);
+
+  // Refresh Token: langlebig, bekommt zusätzlich ein explizites Cookie-Ablaufdatum,
+  // damit der Browser ihn nach REFRESH_TOKEN_TTL Sekunden automatisch löscht.
+  res.cookie('refreshToken', refreshToken, {
+    ...getCookieOpts(),
+    expires: new Date(Date.now() + REFRESH_TOKEN_TTL * 1000)
+  });
+
+  res.json({ msg: 'Success', user: data });
 };
 
 export const login: RequestHandler = async (req, res) => {
@@ -61,7 +48,7 @@ export const login: RequestHandler = async (req, res) => {
     throw new Error('Invalid credentials', { cause: { status: 401 } });
   }
 
-  const match = await bcrypt.compare(password, user.password);
+  const match = await bcrypt.compare(password, user.password!);
 
   if (!match) {
     throw new Error('Invalid credentials', { cause: { status: 401 } });
@@ -69,23 +56,82 @@ export const login: RequestHandler = async (req, res) => {
 
   const { password: _, ...data } = user;
 
-  const token = createToken(data);
+  // Token Rotation beim Login:
+  // Bisherige Refresh Tokens dieses Users werden gelöscht.
+  // So kann sich niemand anderes mit einem alten Token einloggen,
+  // selbst wenn er ihn irgendwie abgegriffen hat.
+  // Alternativ könnte auch nur der Token des aktuellen Devices gelösht werden
+  await RefreshToken.deleteMany({ userId: data._id });
 
-  const cookieOpts = getCookieOpts();
+  const { accessToken, refreshToken } = await createToken(data);
 
-  res.cookie('token', token, cookieOpts);
+  res.cookie('accessToken', accessToken, getCookieOpts());
+  res.cookie('refreshToken', refreshToken, {
+    ...getCookieOpts(),
+    expires: new Date(Date.now() + REFRESH_TOKEN_TTL * 1000)
+  });
 
-  res.json({ msg: 'Success', user: data, token });
+  res.json({ msg: 'Success', user: data });
 };
 
 export const logout: RequestHandler = async (req, res) => {
-  res.clearCookie('token');
+  const { refreshToken } = req.cookies;
+
+  if (refreshToken) {
+    // Nur den einen aktiven Refresh Token löschen (nicht alle).
+    // Sinnvoll, wenn ein User auf mehreren Geräten eingeloggt sein kann.
+    await RefreshToken.deleteOne({ token: refreshToken });
+  }
+
+  // Cookies auf Client-Seite löschen – der Browser entfernt sie
+  res.clearCookie('accessToken');
+  res.clearCookie('refreshToken');
+
   res.json({ message: 'Logged out' });
 };
 
-// Mithilfe der user _id aus dem token können wir den State im Frontend refreshen.
-// TODO: mache den controller sicherer. Was ist z.B., wenn der Nutzer nicht mehr in der DB existiert?
-export const refresh: RequestHandler = async (req, res) => {
+export const me: RequestHandler = async (req, res) => {
+  // req.user wurde von der auth-Middleware gesetzt (aus dem validierten Access Token).
   const user = await User.findById(req.user?._id);
   res.json({ user });
+};
+
+export const refresh: RequestHandler = async (req, res) => {
+  const { refreshToken } = req.cookies;
+
+  // Schritt 1: Ist überhaupt ein Refresh Token im Cookie?
+  if (!refreshToken) {
+    throw new Error('Please log in again', { cause: { status: 401 } });
+  }
+
+  // Schritt 2: Kennt die Datenbank diesen Token?
+  // Unbekannte Tokens (abgelaufen, bereits rotiert oder gefälscht) werden abgelehnt.
+  const storedToken = await RefreshToken.findOne({ token: refreshToken }).lean();
+  if (!storedToken) {
+    throw new Error('Please log in again', { cause: { status: 401 } });
+  }
+
+  // Schritt 3: Gibt es den zugehörigen User noch?
+  const user = await User.findById(storedToken.userId);
+  if (!user) {
+    throw new Error('Please log in again', { cause: { status: 401 } });
+  }
+
+  // Token Rotation:
+  // Den alten Refresh Token (und alle anderen dieses Users) löschen,
+  // dann sofort ein frisches Token-Paar ausstellen.
+  // Jeder Refresh Token ist damit nur genau einmal verwendbar.
+  // Wird ein Token gestohlen und zuerst vom Angreifer genutzt, ist
+  // der Token des echten Users beim nächsten Request bereits ungültig.
+  await RefreshToken.deleteMany({ userId: user._id });
+
+  const { accessToken, refreshToken: rToken } = await createToken(user);
+
+  res.cookie('accessToken', accessToken, getCookieOpts());
+  res.cookie('refreshToken', rToken, {
+    ...getCookieOpts(),
+    expires: new Date(Date.now() + REFRESH_TOKEN_TTL * 1000)
+  });
+
+  res.json({ msg: 'Success', user });
 };

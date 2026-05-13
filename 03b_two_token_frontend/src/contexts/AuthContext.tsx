@@ -109,13 +109,10 @@ const AuthContextProvider = ({ children }: Props) => {
   useEffect(() => {
     const refresh = async () => {
       try {
-        const res = await fetch(
-          `${import.meta.env.VITE_API_URL}/auth/refresh`,
-          {
-            method: 'GET',
-            credentials: 'include',
-          }
-        );
+        const res = await fetch(`${import.meta.env.VITE_API_URL}/auth/me`, {
+          method: 'GET',
+          credentials: 'include',
+        });
 
         const data = await res.json();
 
